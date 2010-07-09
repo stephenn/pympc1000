@@ -160,11 +160,11 @@ Sample = class_factory(
     ),
     format_attrs = (
         ('sample_name', sample_name_validator),
-        ('level', int_in_range_validator(0, 100)),
+        ('level',       int_in_range_validator(0, 100)),
         ('range_upper', int_in_range_validator(0, 127)),
         ('range_lower', int_in_range_validator(0, 127)),
-        ('tuning', int_in_range_validator(-3600, 3600)),
-        ('play_mode', int_in_range_validator(0, 1)),
+        ('tuning',      int_in_range_validator(-3600, 3600)),
+        ('play_mode',   int_in_range_validator(0, 1)),
     ),
 )
 
