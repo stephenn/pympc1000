@@ -64,7 +64,7 @@ def indented_byte_list_string(byte_list, indent_amount=0, items_per_row=8):
                 
     return ''.join((indent_spaces, indent_string.join(str_list)))
 
-def pass_validator(value)
+def pass_validator(value):
     return value
 
 def int_in_range_validator(lower, upper):
@@ -134,10 +134,12 @@ def class_factory(name='', format='', doc='', attrs=None, init=None, data=None, 
     
     if init:
         dct['__init__'] = init
+        
     if data:
-        dct['data'] = data
-    else
-        dct['data'] = pack
+        dct['data'] = property(data)
+    else:
+        dct['data'] = property(pack)
+        
     dct.update(kwarg)
     return type(name, (object,), dct)
 
@@ -165,16 +167,30 @@ Sample = class_factory(
         ('range_lower', int_in_range_validator(0, 127)),
         ('tuning', int_in_range_validator(-3600, 3600)),
         ('play_mode', int_in_range_validator(0, 1)),
-    )
+    ),
     init = sample_init
 )
 
 def pad_init(self, data):
-    
+    self.sample_list = []
+    sample_data_start = 0
+    for i in xrange(0, 4):
+        s = Sample(data[sample_data_start:])
+        self.sample_list.append(s)
+        sample_data_start += Sample.size
+    pad_data_start = sample_data_start    
+    self.unpack(data[pad_data_start:])
+
+def pad_data(self):
+    pad_data_str = self.pack()    
+    sample_str_list = [s.data for s in self.sample_list]
+    data_str_list = sample_str_list
+    data_str_list.append(pad_data_str)
+    return ''.join(data_str_list)
 
 Pad = class_factory(
     name = 'Pad',
-    doc = 'MPC 1000 pad settings'
+    doc = 'MPC 1000 pad settings',
     format = (
         '<'     #  Little-endian
         '2x'    #  Padding
@@ -229,8 +245,9 @@ Pad = class_factory(
         ("fx_send", int_in_range_validator(0, 2)),
         ("fx_send_level", int_in_range_validator(0, 100)),
         ("filter_attenuation", int_in_range_validator(0, 2)),
-    )
-    init = pad_init
+    ),
+    init = pad_init,
+    data = pad_data,
 )
 
 
@@ -323,7 +340,7 @@ class Program(object):
         # Pad and samples
         #
         pad_data_start = header_end
-        pad_data_size = Pad.length
+        pad_data_size = 164
         self.pad_list = []
         for i in range(0, 64):
             pad_data_end = pad_data_start + pad_data_size
