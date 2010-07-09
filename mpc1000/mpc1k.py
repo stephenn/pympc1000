@@ -64,11 +64,77 @@ def indented_byte_list_string(byte_list, indent_amount=0, items_per_row=8):
                 
     return ''.join((indent_spaces, indent_string.join(str_list)))
 
-class Sample(object):
-    """
-    MPC 1000 sample settings
-    """
-    length = 24
+def int_in_range_validator(lower, upper):
+    def f(value):
+        value = int(value)
+        if value < lower or value > upper:
+            raise ValueError('out of range ({0} to {1}): {2!r}'.format(lower, upper, value))
+        return value    
+    return f
+
+def sample_name_validator(value):
+    valid_name_characters = (
+        "abcdefghijklmnopqrstuvwxyz"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "1234567890"
+        "!#$%&'()-@_{} \x00"
+    )
+    value = str(value)
+    if len(value) > 16:
+        raise ValueError('string too long')
+    for c in value:
+        if c not in valid_name_characters:
+            raise ValueError('invalid character: {0!r}'.format(c))
+    return value
+    
+def setter_factory(name, validator):
+    def f(self, val):
+        val = validator(val)
+        setattr(self, '_' + name, val)
+    return f
+
+def getter_factory(name):
+    def f(self):
+        return getattr(self, '_' + name)
+    return f        
+
+def class_factory(name='', format='', doc='', attrs=None, **kwarg):
+    dct = {}
+    dct.update(kwarg)
+    dct['format'] = format
+    dct['__doc__'] = doc
+    dct['size'] = struct.calcsize(format)
+    dct['attrs'] = attrs
+    
+    def init(self, data_str=None):
+        unpacked_data = struct.unpack(self.format, data_str[0:self.size])
+        for i, (name, validator) in enumerate(attrs):
+            setattr(self, name, unpacked_data[i])        
+    dct['__init__'] = init
+    
+    def str_rep(self):
+        out = []
+        for name, validator in attrs:
+            out.append('{0} = {1}'.format(name, getattr(self, name)))
+        return '\n'.join(out)
+    dct['__str__'] = str_rep
+    
+    def data(self):
+        vals = [getattr(self, a[0]) for a in self.attrs]
+        return struct.pack(self.format, *vals)
+    dct['data'] = property(data)
+    
+    if attrs:
+        for name, validator in attrs:
+            g = getter_factory(name)
+            s = setter_factory(name, validator)
+            dct[name] = property(g, s)
+    
+    return type(name, (object,), dct)
+
+Sample = class_factory(
+    name = 'Sample',
+    doc = 'MPC 1000 sample settings',
     format = (
         '<'   #     Little-endian
         '16s' #  0  Sample Name
@@ -79,138 +145,16 @@ class Sample(object):
         'h'   #  4  Tuning
         'B'   #  5  Play Mode       0="One Shot", 1="Note On"
         'x'   #  -  Padding
+    ),
+    attrs = (
+        ('name', sample_name_validator),
+        ('level', int_in_range_validator(0, 100)),
+        ('range_upper', int_in_range_validator(0, 127)),
+        ('range_lower', int_in_range_validator(0, 127)),
+        ('tuning', int_in_range_validator(-3600, 3600)),
+        ('play_mode', int_in_range_validator(0, 1)),
     )
-    valid_name_characters = ("abcdefghijklmnopqrstuvwxyz"
-                             "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                             "1234567890"
-                             "!#$%&'()-@_{} \x00")
-    
-    def __init__(self, data_str=None):
-        """
-        Initialize Sample object with data_str.  Initialized with
-        DEFAULT_SAMPLE_DATA if data_str is None.
-        """
-
-        self._range_upper = 0
-        self._range_lower = 0
-
-        if not data_str:
-            data_str = DEFAULT_SAMPLE_DATA
-        self.parse_data(data_str)
-    
-    def parse_data(self, data_str):        
-        unpacked_data = struct.unpack(Sample.format, data_str[0:24])
-        self.name        = unpacked_data[0]
-        self.level       = unpacked_data[1]
-        self.range_upper = unpacked_data[2]
-        self.range_lower = unpacked_data[3]
-        self.tuning      = unpacked_data[4]
-        self.play_mode   = unpacked_data[5]
-
-    def __str__(self):
-        str_list = ['']
-        str_list.append('Name                       {0}\n'.format(self.name))
-        str_list.append('Level                      {0}\n'.format(self.level))
-        str_list.append('Range Upper                {0}\n'.format(self.range_upper))
-        str_list.append('Range Lower                {0}\n'.format(self.range_lower))
-        str_list.append('Tuning                     {0}\n'.format(self.tuning))
-        str_list.append('Play Mode                  {0}\n'.format(self.play_mode))
-        return '    '.join(str_list)
-
-    @property
-    def name(self):
-        """
-        Name of the wave file without the ".wav" extension.  Max length of
-        sixteen characters.
-        """
-        return self._name
-
-    @name.setter
-    def name(self, value):
-        value = str(value)
-        if len(value) > 16:
-            raise ValueError('string too long')
-        for c in value:
-            if c not in Sample.valid_name_characters:
-                raise ValueError('invalid character: {0!r}'.format(c))
-        self._name = value
-    
-    @property
-    def level(self):
-        """
-        Range: 0 to 100
-        """
-        return self._level
-    
-    @level.setter
-    def level(self, value):
-        self._level = int_in_range(value, 0, 100)
-    
-    @property
-    def range_upper(self):
-        """
-        Range: 0 to 127.  Sets rage_lower to range_higher if range_higher
-        is less than range_lower.
-        """
-        return self._range_upper
-    
-    @range_upper.setter
-    def range_upper(self, value):
-        self._rage_upper = int_in_range(value, 0, 127)
-        if value < self.range_lower:
-            self.range_lower = value
-
-    @property
-    def range_lower(self):
-        """
-        Range: 0 to 127.  Sets range_higher to range_lower if range_lower
-        is greater than range_higher.
-        """
-        return self._range_lower
-    
-    @range_lower.setter
-    def range_lower(self, value):
-        self._range_lower = int_in_range(value, 0, 127)
-        if value > self.range_upper:
-            self.range_upper = value
-    
-    @property
-    def tuning(self):
-        """
-        Range: -3600 to 3600.  Stored as fixed point value, 100 times
-        larger than actual value.
-        """
-        return self._tuning
-    
-    @tuning.setter
-    def tuning(self, value):
-        self._tuning = int_in_range(value, -3600, 3600)
-    
-    @property
-    def play_mode(self):
-        """
-        Range: 0="One Shot", 1="Note On"
-        """
-        return self._play_mode
-    
-    @play_mode.setter
-    def play_mode(self, value):
-        self._play_mode = int_in_range(value, 0, 1)
-
-    @property
-    def data(self):
-        """
-        Return MPC1000 v1.00 formatted data string for object
-        """
-        data_str = struct.pack(Sample.format,
-            self.name,
-            self.level,
-            self.range_upper,
-            self.range_lower,
-            self.tuning,
-            self.play_mode
-        )
-        return data_str
+)
 
 
 class Pad(object):
@@ -267,7 +211,7 @@ class Pad(object):
         #
         self.sample_list = []
         sample_data_start = 0
-        sample_data_size = Sample.length
+        sample_data_size = Sample.size
         for i in range(0, 4):
             sample_data_end = sample_data_start + sample_data_size
             s = Sample(data_str[sample_data_start:sample_data_end])
@@ -278,7 +222,7 @@ class Pad(object):
         # Pad data
         #
         pad_data_start = sample_data_end
-        pad_data_size = Pad.length - (4 * Sample.length)
+        pad_data_size = Pad.length - (4 * Sample.size)
         pad_data_end = pad_data_start + pad_data_size
         
         unpacked_data = struct.unpack(Pad.format, data_str[pad_data_start:pad_data_end])
