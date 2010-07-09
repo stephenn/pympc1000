@@ -1,12 +1,12 @@
 #!/usr/bin/env python
-
-# Stephen Norum
-# stephen@mybunnyhug.org
-# http://www.mybunnyhug.org/
-
 """
 load, edit, and export Akai MPC 1000 program file data
 """
+
+__version__ = '0.2'
+__author__ = 'Stephen Norum <stephen@mybunnyhug.org>'
+# http://www.mybunnyhug.org/
+
 
 import sys
 import struct
@@ -14,7 +14,7 @@ import bz2
 import base64
 import re
 
-__all__ = ('Program', 'Pad', 'Sample', 'DEFAULT_PGM_DATA', 'DEFAULT_PAD_DATA', 'DEFAULT_SAMPLE_DATA')
+__all__ = ('Program', 'Pad', 'Sample', 'DEFAULT_PGM_DATA')
 
 attr_value_sep = ' = '
 attr_value_fmt = attr_value_sep.join(('{0}', '{1}'))
@@ -35,10 +35,6 @@ KcKEhte4kQA=
 '''
 
 DEFAULT_PGM_DATA = bz2.decompress(base64.b64decode(DEFAULT_PGM_DATA_BZ2_B64))
-
-DEFAULT_PAD_DATA = DEFAULT_PGM_DATA[24:(24 + 164)]
-DEFAULT_SAMPLE_DATA = DEFAULT_PGM_DATA[24:(24 + 24)]
-
 
 def indented_byte_list_string(byte_list, indent_amount=0, items_per_row=8):
     """
@@ -104,7 +100,7 @@ def getter_factory(name):
         return getattr(self, '_' + name)
     return f        
 
-def class_factory(name='', format='', doc='', format_attrs=None, additional_attrs=None, **kwarg):
+def class_factory(class_name='', format='', doc='', format_attrs=None, additional_attrs=None, **kwarg):
     dct = {}
     dct['format'] = format
     dct['__doc__'] = doc
@@ -126,32 +122,31 @@ def class_factory(name='', format='', doc='', format_attrs=None, additional_attr
         out.append(')')
     dct['format_str'] = format_str
 
-        
     def pack(self):
         vals = [getattr(self, a[0]) for a in self.format_attrs]
         return struct.pack(self.format, *vals)
     dct['pack'] = pack
     
-    for name, validator in dct['format_attrs']:
-        g = getter_factory(name)
-        s = setter_factory(name, validator)
-        dct[name] = property(g, s)
+    for attr_name, validator in dct['format_attrs']:
+        g = getter_factory(attr_name)
+        s = setter_factory(attr_name, validator)
+        dct[attr_name] = property(g, s)
     
-    for name, validator in dct['additional_attrs']:
-        g = getter_factory(name)
-        s = setter_factory(name, validator)
-        dct[name] = property(g, s)
+    for attr_name, validator in dct['additional_attrs']:
+        g = getter_factory(attr_name)
+        s = setter_factory(attr_name, validator)
+        dct[attr_name] = property(g, s)
     
     dct['__init__'] = unpack        
     dct['__str__'] = format_str
     dct['data'] = property(pack)
         
     dct.update(kwarg)
-    return type(name, (object,), dct)
+    return type(class_name, (object,), dct)
 
 Sample = class_factory(
-    name = 'Sample',
-    doc = 'MPC 1000 sample settings',
+    class_name = 'Sample',
+    doc = 'MPC 1000 Sample',
     format = (
         '<'   # Little-endian
         '16s' # Sample Name
@@ -174,37 +169,61 @@ Sample = class_factory(
 )
 
 pad_format = (
-        '<'     #  Little-endian
-        '2x'    #  Padding
-        'b'     #  Voice Overlap    0="Poly", 1="Mono"
-        'b'     #  Mute Group       0="Off", 1 to 32
-        'x'     #  Padding
-        'B'     #  Unknown
-        'B'     #  Attack   
-        'B'     #  Decay 
-        'B'     #  Decay Mode       0="End", 1="Start"
-        '2x'    #  Padding 
-        'B'     #  Velocity to Level    
-        '5x'    #  Padding 
-        'b'     #  Filter 1 Type    0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass"
-        'B'     #  Filter 1 Freq    
-        'B'     #  Filter 1 Res 
-        '4x'    #  Padding
-        'B'     #  Filter 1 Velocity to Frequency   
-        'B'     #  Filter 2 Type    0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass", 4="Link"
-        'B'     #  Filter 2 Freq    
-        'B'     #  Filter 2 Res 
-        '4x'    #  Padding
-        'B'     #  Filter 2 Velocity to Frequency   
-        '14x'   #  Padding  
-        'B'     #  Mixer Level 
-        'B'     #  Mixer Pan    0 to 49=Left, 50=Center, 51 to 100=Right
-        'B'     #  Output       0="Stereo", 1="1-2", 2="3-4"
-        'B'     #  FX Send      0="Off", 1="1", 2="2"
-        'B'     #  FX Send Level 
-        'B'     #  Filter Attenuation   0="0dB", 1="-6dB", 2="-12dB"
-        '15x'   #  Padding
-    )
+    '<'     #  Little-endian
+    '2x'    #  Padding
+    'b'     #  Voice Overlap    0="Poly", 1="Mono"
+    'b'     #  Mute Group       0="Off", 1 to 32
+    'x'     #  Padding
+    'B'     #  Unknown
+    'B'     #  Attack   
+    'B'     #  Decay 
+    'B'     #  Decay Mode       0="End", 1="Start"
+    '2x'    #  Padding 
+    'B'     #  Velocity to Level    
+    '5x'    #  Padding 
+    'b'     #  Filter 1 Type    0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass"
+    'B'     #  Filter 1 Freq    
+    'B'     #  Filter 1 Res 
+    '4x'    #  Padding
+    'B'     #  Filter 1 Velocity to Frequency   
+    'B'     #  Filter 2 Type    0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass", 4="Link"
+    'B'     #  Filter 2 Freq    
+    'B'     #  Filter 2 Res 
+    '4x'    #  Padding
+    'B'     #  Filter 2 Velocity to Frequency   
+    '14x'   #  Padding  
+    'B'     #  Mixer Level 
+    'B'     #  Mixer Pan    0 to 49=Left, 50=Center, 51 to 100=Right
+    'B'     #  Output       0="Stereo", 1="1-2", 2="3-4"
+    'B'     #  FX Send      0="Off", 1="1", 2="2"
+    'B'     #  FX Send Level 
+    'B'     #  Filter Attenuation   0="0dB", 1="-6dB", 2="-12dB"
+    '15x'   #  Padding
+)
+
+pad_format_attrs = (
+    ("voice_overlap", int_in_range_validator(0, 1)),
+    ("mute_group", int_in_range_validator(0, 32)),
+    ("unknown", int_in_range_validator(0, 255)),
+    ("attack", int_in_range_validator(0, 100)),
+    ("decay", int_in_range_validator(0, 100)),
+    ("decay_mode", int_in_range_validator(0, 1)),
+    ("vel_to_level", int_in_range_validator(0, 100)),
+    ("filter_1_type", int_in_range_validator(0, 3)),
+    ("filter_1_freq", int_in_range_validator(0, 100)),
+    ("filter_1_res", int_in_range_validator(0, 100)),
+    ("filter_1_vel_to_freq", int_in_range_validator(0, 100)),
+    ("filter_2_type", int_in_range_validator(0, 4)),
+    ("filter_2_freq", int_in_range_validator(0, 100)),
+    ("filter_2_res", int_in_range_validator(0, 100)),
+    ("filter_2_vel_to_freq", int_in_range_validator(0, 100)),
+    ("mixer_level", int_in_range_validator(0, 100)),
+    ("mixer_pan", int_in_range_validator(0, 100)),
+    ("output", int_in_range_validator(0, 2)),
+    ("fx_send", int_in_range_validator(0, 2)),
+    ("fx_send_level", int_in_range_validator(0, 100)),
+    ("filter_attenuation", int_in_range_validator(0, 2)),
+)
 
 def pad_init(self, data):
     self.samples = []
@@ -228,32 +247,10 @@ def pad_data(self):
     return ''.join(data_str_list)
 
 Pad = class_factory(
-    name = 'Pad',
-    doc = 'MPC 1000 pad settings',
+    class_name = 'Pad',
+    doc = 'MPC 1000 Pad',
     format = pad_format,
-    format_attrs = (
-        ("voice_overlap", int_in_range_validator(0, 1)),
-        ("mute_group", int_in_range_validator(0, 32)),
-        ("unknown", int_in_range_validator(0, 255)),
-        ("attack", int_in_range_validator(0, 100)),
-        ("decay", int_in_range_validator(0, 100)),
-        ("decay_mode", int_in_range_validator(0, 1)),
-        ("vel_to_level", int_in_range_validator(0, 100)),
-        ("filter_1_type", int_in_range_validator(0, 3)),
-        ("filter_1_freq", int_in_range_validator(0, 100)),
-        ("filter_1_res", int_in_range_validator(0, 100)),
-        ("filter_1_vel_to_freq", int_in_range_validator(0, 100)),
-        ("filter_2_type", int_in_range_validator(0, 4)),
-        ("filter_2_freq", int_in_range_validator(0, 100)),
-        ("filter_2_res", int_in_range_validator(0, 100)),
-        ("filter_2_vel_to_freq", int_in_range_validator(0, 100)),
-        ("mixer_level", int_in_range_validator(0, 100)),
-        ("mixer_pan", int_in_range_validator(0, 100)),
-        ("output", int_in_range_validator(0, 2)),
-        ("fx_send", int_in_range_validator(0, 2)),
-        ("fx_send_level", int_in_range_validator(0, 100)),
-        ("filter_attenuation", int_in_range_validator(0, 2)),
-    ),
+    format_attrs = pad_format_attrs,
     additional_attrs = (
         ("midi_note", int_in_range_validator(0, 127)),
         ("samples", pass_validator),
@@ -264,38 +261,67 @@ Pad = class_factory(
     data = property(pad_data),
 )
 
-
 program_format = (
-        '<'   #  Little-endian
-        'B'   #  MIDI Program Change   0="Off", 1 to 128
-        'B'   #  Slider 1 Pad
-        'B'   #  Unknown
-        'B'   #  Slider 1 Parameter    0="Tune", 1="Filter", 2="Layer", 3="Attack", 4="Decay"
-        'b'   #  Slider 1 Tune Low  
-        'b'   #  Slider 1 Tune High
-        'b'   #  Slider 1 Filter Low   
-        'b'   #  Slider 1 Filter High  
-        'B'   #  Slider 1 Layer Low    
-        'B'   #  Slider 1 Layer High   
-        'B'   #  Slider 1 Attack Low   
-        'B'   #  Slider 1 Attack High  
-        'B'   #  Slider 1 Decay Low    
-        'B'   #  Slider 1 Decay High   
-        'B'   #  Slider 2 Pad   
-        'B'   #  Unknown 
-        'B'   #  Slider 2 Parameter    0="Tune", 1="Filter", 2="Layer", 3="Attack", 4="Decay"
-        'b'   #  Slider 2 Tune Low  
-        'b'   #  Slider 2 Tune High     
-        'b'   #  Slider 2 Filter Low        
-        'b'   #  Slider 2 Filter High   
-        'B'   #  Slider 2 Layer Low     
-        'B'   #  Slider 2 Layer High    
-        'B'   #  Slider 2 Attack Low        
-        'B'   #  Slider 2 Attack High   
-        'B'   #  Slider 2 Decay Low     
-        'B'   #  Slider 2 Decay High   
-        '17x' #  Padding
-    )
+    '<'   #  Little-endian
+    'B'   #  MIDI Program Change   0="Off", 1 to 128
+    'B'   #  Slider 1 Pad
+    'B'   #  Unknown
+    'B'   #  Slider 1 Parameter    0="Tune", 1="Filter", 2="Layer", 3="Attack", 4="Decay"
+    'b'   #  Slider 1 Tune Low  
+    'b'   #  Slider 1 Tune High
+    'b'   #  Slider 1 Filter Low   
+    'b'   #  Slider 1 Filter High  
+    'B'   #  Slider 1 Layer Low    
+    'B'   #  Slider 1 Layer High   
+    'B'   #  Slider 1 Attack Low   
+    'B'   #  Slider 1 Attack High  
+    'B'   #  Slider 1 Decay Low    
+    'B'   #  Slider 1 Decay High   
+    'B'   #  Slider 2 Pad   
+    'B'   #  Unknown 
+    'B'   #  Slider 2 Parameter    0="Tune", 1="Filter", 2="Layer", 3="Attack", 4="Decay"
+    'b'   #  Slider 2 Tune Low  
+    'b'   #  Slider 2 Tune High     
+    'b'   #  Slider 2 Filter Low        
+    'b'   #  Slider 2 Filter High   
+    'B'   #  Slider 2 Layer Low     
+    'B'   #  Slider 2 Layer High    
+    'B'   #  Slider 2 Attack Low        
+    'B'   #  Slider 2 Attack High   
+    'B'   #  Slider 2 Decay Low     
+    'B'   #  Slider 2 Decay High   
+    '17x' #  Padding
+)
+
+program_format_attrs = (
+    ('midi_program_change'  , int_in_range_validator(0, 128)),
+    ('slider_1_pad'         , int_in_range_validator(0, 63)),
+    ('slider_1_unknown'     , int_in_range_validator(0, 255)),
+    ('slider_1_parameter'   , int_in_range_validator(0, 4)),
+    ('slider_1_tune_low'    , int_in_range_validator(-120, 120)),
+    ('slider_1_tune_high'   , int_in_range_validator(-120, 120)),
+    ('slider_1_filter_low'  , int_in_range_validator(-50, 50)),
+    ('slider_1_filter_high' , int_in_range_validator(-50, 50)),
+    ('slider_1_layer_low'   , int_in_range_validator(0, 127)),
+    ('slider_1_layer_high'  , int_in_range_validator(0, 127)),
+    ('slider_1_attack_low'  , int_in_range_validator(0, 100)),
+    ('slider_1_attack_high' , int_in_range_validator(0, 100)),
+    ('slider_1_decay_low'   , int_in_range_validator(0, 100)),
+    ('slider_1_decay_high'  , int_in_range_validator(0, 100)),
+    ('slider_2_pad'         , int_in_range_validator(0, 63)),
+    ('slider_2_unknown'     , int_in_range_validator(0, 255)),
+    ('slider_2_parameter'   , int_in_range_validator(0, 4)),
+    ('slider_2_tune_low'    , int_in_range_validator(-120, 120)),
+    ('slider_2_tune_high'   , int_in_range_validator(-120, 120)),
+    ('slider_2_filter_low'  , int_in_range_validator(-50, 50)),
+    ('slider_2_filter_high' , int_in_range_validator(-50, 50)),
+    ('slider_2_layer_low'   , int_in_range_validator(0, 127)),
+    ('slider_2_layer_high'  , int_in_range_validator(0, 127)),
+    ('slider_2_attack_low'  , int_in_range_validator(0, 100)),
+    ('slider_2_attack_high' , int_in_range_validator(0, 100)),
+    ('slider_2_decay_low'   , int_in_range_validator(0, 100)),
+    ('slider_2_decay_high'  , int_in_range_validator(0, 100)),
+)
 
 def program_init(self, data=None):
     if data is None:
@@ -381,38 +407,10 @@ def program_midi_note_pads(self):
     return mnpl
 
 Program = class_factory(
-    name = 'Program',
-    doc = 'MPC 1000 program settings',
+    class_name = 'Program',
+    doc = 'MPC 1000 Program',
     format = program_format,
-    format_attrs = (
-        ('midi_program_change'  , int_in_range_validator(0, 128)),
-        ('slider_1_pad'         , int_in_range_validator(0, 63)),
-        ('slider_1_unknown'     , int_in_range_validator(0, 255)),
-        ('slider_1_parameter'   , int_in_range_validator(0, 4)),
-        ('slider_1_tune_low'    , int_in_range_validator(-120, 120)),
-        ('slider_1_tune_high'   , int_in_range_validator(-120, 120)),
-        ('slider_1_filter_low'  , int_in_range_validator(-50, 50)),
-        ('slider_1_filter_high' , int_in_range_validator(-50, 50)),
-        ('slider_1_layer_low'   , int_in_range_validator(0, 127)),
-        ('slider_1_layer_high'  , int_in_range_validator(0, 127)),
-        ('slider_1_attack_low'  , int_in_range_validator(0, 100)),
-        ('slider_1_attack_high' , int_in_range_validator(0, 100)),
-        ('slider_1_decay_low'   , int_in_range_validator(0, 100)),
-        ('slider_1_decay_high'  , int_in_range_validator(0, 100)),
-        ('slider_2_pad'         , int_in_range_validator(0, 63)),
-        ('slider_2_unknown'     , int_in_range_validator(0, 255)),
-        ('slider_2_parameter'   , int_in_range_validator(0, 4)),
-        ('slider_2_tune_low'    , int_in_range_validator(-120, 120)),
-        ('slider_2_tune_high'   , int_in_range_validator(-120, 120)),
-        ('slider_2_filter_low'  , int_in_range_validator(-50, 50)),
-        ('slider_2_filter_high' , int_in_range_validator(-50, 50)),
-        ('slider_2_layer_low'   , int_in_range_validator(0, 127)),
-        ('slider_2_layer_high'  , int_in_range_validator(0, 127)),
-        ('slider_2_attack_low'  , int_in_range_validator(0, 100)),
-        ('slider_2_attack_high' , int_in_range_validator(0, 100)),
-        ('slider_2_decay_low'   , int_in_range_validator(0, 100)),
-        ('slider_2_decay_high'  , int_in_range_validator(0, 100)),
-    ),   
+    format_attrs = program_format_attrs,
     addl_formats = {
         'header': '<Hxx16s4x',
         'pad_midi_note': '<64B',
@@ -425,9 +423,6 @@ Program = class_factory(
     midi_note_pads = property(program_midi_note_pads),
 )
 
-
-
-
 def main():
     pgm_data_str = DEFAULT_PGM_DATA
     
@@ -438,9 +433,7 @@ def main():
     else:
         print 'Program failed to load'
         return 1
-    
-    print pgm
-    
+        
     pgm_data = pgm.data
     
     if pgm_data == pgm_data_str:
@@ -451,7 +444,6 @@ def main():
         return 2
 
     return 0
-
 
 if __name__ == '__main__':
     status = main()
