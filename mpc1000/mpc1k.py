@@ -64,6 +64,9 @@ def indented_byte_list_string(byte_list, indent_amount=0, items_per_row=8):
                 
     return ''.join((indent_spaces, indent_string.join(str_list)))
 
+def pass_validator(value)
+    return value
+
 def int_in_range_validator(lower, upper):
     def f(value):
         value = int(value)
@@ -98,19 +101,18 @@ def getter_factory(name):
         return getattr(self, '_' + name)
     return f        
 
-def class_factory(name='', format='', doc='', attrs=None, **kwarg):
+def class_factory(name='', format='', doc='', attrs=None, init=None, data=None, **kwarg):
     dct = {}
-    dct.update(kwarg)
     dct['format'] = format
     dct['__doc__'] = doc
     dct['size'] = struct.calcsize(format)
     dct['attrs'] = attrs
     
-    def init(self, data_str=None):
+    def unpack(self, data_str=None):
         unpacked_data = struct.unpack(self.format, data_str[0:self.size])
-        for i, (name, validator) in enumerate(attrs):
-            setattr(self, name, unpacked_data[i])        
-    dct['__init__'] = init
+        for i, val in enumerate(unpacked_data):
+            setattr(self, attrs[i][0], val)        
+    dct['unpack'] = unpack
     
     def str_rep(self):
         out = []
@@ -119,10 +121,10 @@ def class_factory(name='', format='', doc='', attrs=None, **kwarg):
         return '\n'.join(out)
     dct['__str__'] = str_rep
     
-    def data(self):
+    def pack(self):
         vals = [getattr(self, a[0]) for a in self.attrs]
         return struct.pack(self.format, *vals)
-    dct['data'] = property(data)
+    dct['pack'] = pack
     
     if attrs:
         for name, validator in attrs:
@@ -130,21 +132,31 @@ def class_factory(name='', format='', doc='', attrs=None, **kwarg):
             s = setter_factory(name, validator)
             dct[name] = property(g, s)
     
+    if init:
+        dct['__init__'] = init
+    if data:
+        dct['data'] = data
+    else
+        dct['data'] = pack
+    dct.update(kwarg)
     return type(name, (object,), dct)
 
+def sample_init(self, data):
+    self.unpack(data)
+    
 Sample = class_factory(
     name = 'Sample',
     doc = 'MPC 1000 sample settings',
     format = (
-        '<'   #     Little-endian
-        '16s' #  0  Sample Name
-        'x'   #  -  Padding
-        'B'   #  1  Level
-        'B'   #  2  Range Upper
-        'B'   #  3  Range Lower
-        'h'   #  4  Tuning
-        'B'   #  5  Play Mode       0="One Shot", 1="Note On"
-        'x'   #  -  Padding
+        '<'   # Little-endian
+        '16s' # Sample Name
+        'x'   # Padding
+        'B'   # Level
+        'B'   # Range Upper
+        'B'   # Range Lower
+        'h'   # Tuning
+        'B'   # Play Mode       0="One Shot", 1="Note On"
+        'x'   # Padding
     ),
     attrs = (
         ('name', sample_name_validator),
@@ -154,416 +166,72 @@ Sample = class_factory(
         ('tuning', int_in_range_validator(-3600, 3600)),
         ('play_mode', int_in_range_validator(0, 1)),
     )
+    init = sample_init
 )
 
+def pad_init(self, data):
+    
 
-class Pad(object):
-    """
-    MPC 1000 pad settings
-    """
-    length = 164
+Pad = class_factory(
+    name = 'Pad',
+    doc = 'MPC 1000 pad settings'
     format = (
-        '<'     #       Little-endian
-        '2x'    #   -   Padding
-        'b'     #   0   Voice Overlap    0="Poly", 1="Mono"
-        'b'     #   1   Mute Group       0="Off", 1 to 32
-        'x'     #   -   Padding
-        'B'     #   2   Unknown
-        'B'     #   3   Attack   
-        'B'     #   4   Decay 
-        'B'     #   5   Decay Mode       0="End", 1="Start"
-        '2x'    #   -   Padding 
-        'B'     #   6   Velocity to Level    
-        '5x'    #   -   Padding 
-        'b'     #   7   Filter 1 Type    0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass"
-        'B'     #   8   Filter 1 Freq    
-        'B'     #   9   Filter 1 Res 
-        '4x'    #   -   Padding
-        'B'     #  10   Filter 1 Velocity to Frequency   
-        'B'     #  11   Filter 2 Type    0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass", 4="Link"
-        'B'     #  12   Filter 2 Freq    
-        'B'     #  13   Filter 2 Res 
-        '4x'    #  --   Padding
-        'B'     #  14   Filter 2 Velocity to Frequency   
-        '14x'   #  --   Padding  
-        'B'     #  15   Mixer Level 
-        'B'     #  16   Mixer Pan    0 to 49=Left, 50=Center, 51 to 100=Right
-        'B'     #  17   Output       0="Stereo", 1="1-2", 2="3-4"
-        'B'     #  18   FX Send      0="Off", 1="1", 2="2"
-        'B'     #  19   FX Send Level 
-        'B'     #  20   Filter Attenuation   0="0dB", 1="-6dB", 2="-12dB"
-        '15x'   #  --   Padding
+        '<'     #  Little-endian
+        '2x'    #  Padding
+        'b'     #  Voice Overlap    0="Poly", 1="Mono"
+        'b'     #  Mute Group       0="Off", 1 to 32
+        'x'     #  Padding
+        'B'     #  Unknown
+        'B'     #  Attack   
+        'B'     #  Decay 
+        'B'     #  Decay Mode       0="End", 1="Start"
+        '2x'    #  Padding 
+        'B'     #  Velocity to Level    
+        '5x'    #  Padding 
+        'b'     #  Filter 1 Type    0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass"
+        'B'     #  Filter 1 Freq    
+        'B'     #  Filter 1 Res 
+        '4x'    #  Padding
+        'B'     #  Filter 1 Velocity to Frequency   
+        'B'     #  Filter 2 Type    0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass", 4="Link"
+        'B'     #  Filter 2 Freq    
+        'B'     #  Filter 2 Res 
+        '4x'    #  Padding
+        'B'     #  Filter 2 Velocity to Frequency   
+        '14x'   #  Padding  
+        'B'     #  Mixer Level 
+        'B'     #  Mixer Pan    0 to 49=Left, 50=Center, 51 to 100=Right
+        'B'     #  Output       0="Stereo", 1="1-2", 2="3-4"
+        'B'     #  FX Send      0="Off", 1="1", 2="2"
+        'B'     #  FX Send Level 
+        'B'     #  Filter Attenuation   0="0dB", 1="-6dB", 2="-12dB"
+        '15x'   #  Padding
+    ),
+    attrs = (
+        ("voice_overlap", int_in_range_validator(0, 1)),
+        ("mute_group", int_in_range_validator(0, 32)),
+        ("unknown", pass_validator),
+        ("attack", int_in_range_validator(0, 100)),
+        ("decay", int_in_range_validator(0, 100)),
+        ("decay_mode", int_in_range_validator(0, 1)),
+        ("vel_to_level", int_in_range_validator(0, 100)),
+        ("filter_1_type", int_in_range_validator(0, 3)),
+        ("filter_1_freq", int_in_range_validator(0, 100)),
+        ("filter_1_res", int_in_range_validator(0, 100)),
+        ("filter_1_vel_to_freq", int_in_range_validator(0, 100)),
+        ("filter_2_type", int_in_range_validator(0, 4)),
+        ("filter_2_freq", int_in_range_validator(0, 100)),
+        ("filter_2_res", int_in_range_validator(0, 100)),
+        ("filter_2_vel_to_freq", int_in_range_validator(0, 100)),
+        ("mixer_level", int_in_range_validator(0, 100)),
+        ("mixer_pan", int_in_range_validator(0, 100)),
+        ("output", int_in_range_validator(0, 2)),
+        ("fx_send", int_in_range_validator(0, 2)),
+        ("fx_send_level", int_in_range_validator(0, 100)),
+        ("filter_attenuation", int_in_range_validator(0, 2)),
     )
-    
-    def __init__(self, data_str=None):
-        """
-        Initialize Pad object with data_str.  Initialized with
-        DEFAULT_PAD_DATA if data_str is None.
-        """
-        if not data_str:
-            data_str = DEFAULT_PAD_DATA
-        
-        self.parse_data(data_str)
-
-    def parse_data(self, data_str):
-        #
-        # Samples
-        #
-        self.sample_list = []
-        sample_data_start = 0
-        sample_data_size = Sample.size
-        for i in range(0, 4):
-            sample_data_end = sample_data_start + sample_data_size
-            s = Sample(data_str[sample_data_start:sample_data_end])
-            self.sample_list.append(s)
-            sample_data_start = sample_data_end
-        
-        #
-        # Pad data
-        #
-        pad_data_start = sample_data_end
-        pad_data_size = Pad.length - (4 * Sample.size)
-        pad_data_end = pad_data_start + pad_data_size
-        
-        unpacked_data = struct.unpack(Pad.format, data_str[pad_data_start:pad_data_end])
-        self.voice_overlap        = unpacked_data[0]
-        self.mute_group           = unpacked_data[1]
-        self.unknown              = unpacked_data[2]
-        self.attack               = unpacked_data[3]
-        self.decay                = unpacked_data[4]
-        self.decay_mode           = unpacked_data[5]
-        self.vel_to_level         = unpacked_data[6]
-        self.filter_1_type        = unpacked_data[7]
-        self.filter_1_freq        = unpacked_data[8]
-        self.filter_1_res         = unpacked_data[9]
-        self.filter_1_vel_to_freq = unpacked_data[10]
-        self.filter_2_type        = unpacked_data[11]
-        self.filter_2_freq        = unpacked_data[12]
-        self.filter_2_res         = unpacked_data[13]
-        self.filter_2_vel_to_freq = unpacked_data[14]
-        self.mixer_level          = unpacked_data[15]
-        self.mixer_pan            = unpacked_data[16]
-        self.output               = unpacked_data[17]
-        self.fx_send              = unpacked_data[18]
-        self.fx_send_level        = unpacked_data[19]
-        self.filter_attenuation   = unpacked_data[20]
-
-    def __str__(self):
-        str_list = []
-        for i, s in enumerate(self.sample_list):
-            str_list.append('Sample {0}'.format(i))
-            str_list.append(str(s))
-
-        str_list.append('Pad Data')
-        sub_str_list = ['']
-        sub_str_list.append('MIDI Note                  {0}\n'.format(self.midi_note))
-        sub_str_list.append('Voice Overlap              {0}\n'.format(self.voice_overlap))
-        sub_str_list.append('Mute Group                 {0}\n'.format(self.mute_group))
-        sub_str_list.append('Attack                     {0}\n'.format(self.attack))
-        sub_str_list.append('Decay                      {0}\n'.format(self.decay))
-        sub_str_list.append('Decay Mode                 {0}\n'.format(self.decay_mode))
-        sub_str_list.append('Vel to Level               {0}\n'.format(self.vel_to_level))
-        sub_str_list.append('Filter 1 Type              {0}\n'.format(self.filter_1_type))
-        sub_str_list.append('Filter 1 Freq              {0}\n'.format(self.filter_1_freq))
-        sub_str_list.append('Filter 1 Res               {0}\n'.format(self.filter_1_res))
-        sub_str_list.append('Filter 1 Vel to Freq       {0}\n'.format(self.filter_1_vel_to_freq))
-        sub_str_list.append('Filter 2 Type              {0}\n'.format(self.filter_2_type))
-        sub_str_list.append('Filter 2 Freq              {0}\n'.format(self.filter_2_freq))
-        sub_str_list.append('Filter 2 Res               {0}\n'.format(self.filter_2_res))
-        sub_str_list.append('Filter 2 Vel to Freq       {0}\n'.format(self.filter_2_vel_to_freq))
-        sub_str_list.append('Mixer Level                {0}\n'.format(self.mixer_level))
-        sub_str_list.append('Mixer Pan                  {0}\n'.format(self.mixer_pan))
-        sub_str_list.append('Output                     {0}\n'.format(self.output))
-        sub_str_list.append('FX Send                    {0}\n'.format(self.fx_send))
-        sub_str_list.append('FX Send Level              {0}\n'.format(self.fx_send_level))
-        sub_str_list.append('Filter Attenuation         {0}\n'.format(self.filter_attenuation))
-        sub_str_list.append('Unknown                    {0}\n'.format(self.unknown))
-        str_list.append('    '.join(sub_str_list))
-
-        return '\n'.join(str_list)
-
-    @property
-    def voice_overlap(self):
-        """
-        Range: 0="Poly", 1="Mono"
-        """
-        return self._voice_overlap
-    
-    @voice_overlap.setter
-    def voice_overlap(self, value):
-        self._voice_overlap = int_in_range(value, 0, 1)
-    
-    @property
-    def mute_group(self):
-        """
-        Range: 0="Off", 1 to 32
-        """
-        return self._mute_group
-    
-    @mute_group.setter
-    def mute_group(self, value):
-        self._mute_group = int_in_range(value, 0, 32)
-
-    @property
-    def attack(self):
-        """
-        Range: 0 to 100
-        """
-        return self._attack
-    
-    @attack.setter
-    def attack(self, value):
-        self._attack = int_in_range(value, 0, 100)
-
-    @property
-    def decay(self):
-        """
-        Range: 0 to 100
-        """
-        return self._decay
-    
-    @decay.setter
-    def decay(self, value):
-        self._decay = int_in_range(value, 0, 100)
-        
-    @property
-    def decay_mode(self):
-        """
-        Range: 0="End", 1="Start"
-        """
-        return self._decay_mode
-    
-    @decay_mode.setter
-    def decay_mode(self, value):
-        self._decay_mode = int_in_range(value, 0, 1)
-        
-    @property
-    def vel_to_level(self):
-        """
-        Range: 0 to 100
-        """
-        return self._vel_to_level
-    
-    @vel_to_level.setter
-    def vel_to_level(self, value):
-        self._vel_to_level = int_in_range(value, 0, 100)
-        
-    @property
-    def filter_1_type(self):
-        """
-        Range: 0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass"
-        """
-        return self._filter_1_type
-    
-    @filter_1_type.setter
-    def filter_1_type(self, value):
-        self._filter_1_type = int_in_range(value, 0, 3)
-
-    @property
-    def filter_1_freq(self):
-        """
-        Range: 0 to 100
-        """
-        return self._filter_1_freq
-    
-    @filter_1_freq.setter
-    def filter_1_freq(self, value):
-        self._filter_1_freq = int_in_range(value, 0, 100)
-
-    @property
-    def filter_1_res(self):
-        """
-        Range: 0 to 100
-        """
-        return self._filter_1_res
-    
-    @filter_1_res.setter
-    def filter_1_res(self, value):
-        self._filter_1_res = int_in_range(value, 0, 100)
-
-    @property
-    def filter_1_vel_to_freq(self):
-        """
-        Range: 0 to 100
-        """
-        return self._filter_1_vel_to_freq
-    
-    @filter_1_vel_to_freq.setter
-    def filter_1_vel_to_freq(self, value):
-        self._filter_1_vel_to_freq = int_in_range(value, 0, 100)
-
-    @property
-    def filter_2_type(self):
-        """
-        Range: 0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass", 4="Link"
-        """
-        return self._filter_2_type
-    
-    @filter_2_type.setter
-    def filter_2_type(self, value):
-        self._filter_2_type = int_in_range(value, 0, 4)
-
-    @property
-    def filter_2_freq(self):
-        """
-        Range: 0 to 100
-        """
-        return self._filter_2_freq
-    
-    @filter_2_freq.setter
-    def filter_2_freq(self, value):
-        self._filter_2_freq = int_in_range(value, 0, 100)
-
-    @property
-    def filter_2_res(self):
-        """
-        Range: 0 to 100
-        """
-        return self._filter_2_res
-    
-    @filter_2_res.setter
-    def filter_2_res(self, value):
-        self._filter_2_res = int_in_range(value, 0, 100)
-
-    @property
-    def filter_2_vel_to_freq(self):
-        """
-        Range: 0 to 100
-        """
-        return self._filter_2_vel_to_freq
-    
-    @filter_2_vel_to_freq.setter
-    def filter_2_vel_to_freq(self, value):
-        """
-        Range: 0 to 100
-        """
-        self._filter_2_vel_to_freq = int_in_range(value, 0, 100)
-
-    @property
-    def mixer_level(self):
-        """
-        Range: 0 to 100
-        """
-        return self._mixer_level
-    
-    @mixer_level.setter
-    def mixer_level(self, value):
-        self._mixer_level = int_in_range(value, 0, 100)
-
-    @property
-    def mixer_pan(self):
-        """
-        Range: 0 to 100
-        Left: 0 to 49
-        Center: 50
-        Right: 51 to 100
-        """
-        return self._mixer_pan
-    
-    @mixer_pan.setter
-    def mixer_pan(self, value):
-        self._mixer_pan = int_in_range(value, 0, 100)
-
-    @property
-    def output(self):
-        """
-        0="Stereo", 1="1-2", 2="3-4"
-        """
-        return self._output
-    
-    @output.setter
-    def output(self, value):
-        self._output = int_in_range(value, 0, 2)
-
-    @property
-    def fx_send(self):
-        """
-        Range: 0="Off", 1="1", 2="2"
-        """
-        return self._fx_send
-    
-    @fx_send.setter
-    def fx_send(self, value):
-        self._fx_send = int_in_range(value, 0, 2)
-
-    @property
-    def fx_send_level(self):
-        """
-        Range: 0 to 100
-        """
-        return self._fx_send_level
-    
-    @fx_send_level.setter
-    def fx_send_level(self, value):
-        self._fx_send_level = int_in_range(value, 0, 100)
-
-    @property
-    def filter_attenuation(self):
-        """
-        Range: 0="0dB", 1="-6dB", 2="-12dB"
-        """
-        return self._filter_attenuation
-    
-    @filter_attenuation.setter
-    def filter_attenuation(self, value):
-        self._filter_attenuation = int_in_range(value, 0, 2)
-
-    @property
-    def midi_note(self):
-        """
-        Range: 0 to 127
-        """
-        return self._midi_note
-    
-    @midi_note.setter
-    def midi_note(self, value):
-        self._midi_note = int_in_range(value, 0, 127)
-
-    @property
-    def unknown(self):
-        """
-        Unknown value.  Default pgm value is 1.
-        """
-        return self._unknown
-    
-    @unknown.setter
-    def unknown(self, value):
-        self._unknown = int_in_range(value, 0, 255)
-    
-    @property
-    def data(self):
-        """
-        Return MPC1000 v1.00 formatted data string for object
-        """
-        pad_data_str = struct.pack(Pad.format,
-            self.voice_overlap,
-            self.mute_group,
-            self.unknown,
-            self.attack,
-            self.decay,
-            self.decay_mode,
-            self.vel_to_level,
-            self.filter_1_type,
-            self.filter_1_freq,
-            self.filter_1_res,
-            self.filter_1_vel_to_freq,
-            self.filter_2_type,
-            self.filter_2_freq,
-            self.filter_2_res,
-            self.filter_2_vel_to_freq,
-            self.mixer_level,
-            self.mixer_pan,
-            self.output,
-            self.fx_send,
-            self.fx_send_level,
-            self.filter_attenuation
-        )
-        
-        sample_str_list = [s.data for s in self.sample_list]
-        data_str_list = sample_str_list
-        data_str_list.append(pad_data_str)
-
-        return ''.join(data_str_list)
+    init = pad_init
+)
 
 
 class Program(object):
