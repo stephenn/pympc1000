@@ -1,0 +1,251 @@
+NAME
+    mpc1000 - load, edit, and export Akai MPC 1000 program file data
+
+FILE
+    mpc1000/__init__.py
+
+PACKAGE CONTENTS
+    mpc1k
+
+CLASSES
+    __builtin__.object
+        mpc1000.mpc1k.Pad
+        mpc1000.mpc1k.Program
+        mpc1000.mpc1k.Sample
+    
+    class Pad(__builtin__.object)
+     |  MPC 1000 Pad
+     |  
+     |  Methods defined here:
+     |  
+     |  __init__ = pad_init(self, data)
+     |  
+     |  __str__ = pad_str(self)
+     |  
+     |  format_str(self)
+     |  
+     |  pack(self)
+     |  
+     |  unpack(self, data_str=None)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  attack
+     |  
+     |  data
+     |  
+     |  decay
+     |  
+     |  decay_mode
+     |  
+     |  filter_1_freq
+     |  
+     |  filter_1_res
+     |  
+     |  filter_1_type
+     |  
+     |  filter_1_vel_to_freq
+     |  
+     |  filter_2_freq
+     |  
+     |  filter_2_res
+     |  
+     |  filter_2_type
+     |  
+     |  filter_2_vel_to_freq
+     |  
+     |  filter_attenuation
+     |  
+     |  fx_send
+     |  
+     |  fx_send_level
+     |  
+     |  midi_note
+     |  
+     |  mixer_level
+     |  
+     |  mixer_pan
+     |  
+     |  mute_group
+     |  
+     |  output
+     |  
+     |  samples
+     |  
+     |  unknown
+     |  
+     |  vel_to_level
+     |  
+     |  voice_overlap
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  additional_attrs = (('midi_note', <function f>), ('samples', <function...
+     |  
+     |  format = '<2xbbxBBBB2xB5xbBB4xBBBB4xB14xBBBBBB15x'
+     |  
+     |  format_attrs = (('voice_overlap', <function f>), ('mute_group', <funct...
+     |  
+     |  size = 164
+    
+    class Program(__builtin__.object)
+     |  MPC 1000 Program
+     |  
+     |  Methods defined here:
+     |  
+     |  __init__ = program_init(self, data=None)
+     |  
+     |  __str__ = program_str(self)
+     |  
+     |  format_str(self)
+     |  
+     |  pack(self)
+     |  
+     |  unpack(self, data_str=None)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  data
+     |  
+     |  midi_note_pads
+     |      List of pad numbers (Range: 0 to 63, no pad=64) associated with MIDI notes
+     |  
+     |  midi_program_change
+     |  
+     |  pad_midi_notes
+     |      List of MIDI note numbers (Range: 0 to 127) associated with pads
+     |  
+     |  slider_1_attack_high
+     |  
+     |  slider_1_attack_low
+     |  
+     |  slider_1_decay_high
+     |  
+     |  slider_1_decay_low
+     |  
+     |  slider_1_filter_high
+     |  
+     |  slider_1_filter_low
+     |  
+     |  slider_1_layer_high
+     |  
+     |  slider_1_layer_low
+     |  
+     |  slider_1_pad
+     |  
+     |  slider_1_parameter
+     |  
+     |  slider_1_tune_high
+     |  
+     |  slider_1_tune_low
+     |  
+     |  slider_1_unknown
+     |  
+     |  slider_2_attack_high
+     |  
+     |  slider_2_attack_low
+     |  
+     |  slider_2_decay_high
+     |  
+     |  slider_2_decay_low
+     |  
+     |  slider_2_filter_high
+     |  
+     |  slider_2_filter_low
+     |  
+     |  slider_2_layer_high
+     |  
+     |  slider_2_layer_low
+     |  
+     |  slider_2_pad
+     |  
+     |  slider_2_parameter
+     |  
+     |  slider_2_tune_high
+     |  
+     |  slider_2_tune_low
+     |  
+     |  slider_2_unknown
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  additional_attrs = []
+     |  
+     |  addl_formats = {'header': '<Hxx16s4x', 'midi_note_pad': '<128B', 'pad_...
+     |  
+     |  format = '<BBBBbbbbBBBBBBBBBbbbbBBBBBB17x'
+     |  
+     |  format_attrs = (('midi_program_change', <function f>), ('slider_1_pad'...
+     |  
+     |  size = 44
+    
+    class Sample(__builtin__.object)
+     |  MPC 1000 Sample
+     |  
+     |  Methods defined here:
+     |  
+     |  __init__ = unpack(self, data_str=None)
+     |  
+     |  __str__ = format_str(self)
+     |  
+     |  format_str(self)
+     |  
+     |  pack(self)
+     |  
+     |  unpack(self, data_str=None)
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data descriptors defined here:
+     |  
+     |  __dict__
+     |      dictionary for instance variables (if defined)
+     |  
+     |  __weakref__
+     |      list of weak references to the object (if defined)
+     |  
+     |  data
+     |  
+     |  level
+     |  
+     |  play_mode
+     |  
+     |  range_lower
+     |  
+     |  range_upper
+     |  
+     |  sample_name
+     |  
+     |  tuning
+     |  
+     |  ----------------------------------------------------------------------
+     |  Data and other attributes defined here:
+     |  
+     |  additional_attrs = []
+     |  
+     |  format = '<16sxBBBhBx'
+     |  
+     |  format_attrs = (('sample_name', <function sample_name_validator>), ('l...
+     |  
+     |  size = 24
+
+DATA
+    DEFAULT_PGM_DATA = '\x04*\x00\x00MPC1000 PGM 1.00\x00\x00\x00\x00\x00\...
+    __all__ = ('Program', 'Pad', 'Sample', 'DEFAULT_PGM_DATA')
+
+
