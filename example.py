@@ -16,7 +16,7 @@ def parse_arguments(argv=None):
         'infile',
         nargs='?',
         type=argparse.FileType('rb'),
-        help='MPC 1000 program (default: default pgm data)')
+        help='MPC 1000 pgm file (default: default pgm data)')
     parser.add_argument(
         '-o',
         dest='outfile',
@@ -33,7 +33,7 @@ def main(args):
     else:
         pgm_data = mpc1000.DEFAULT_PGM_DATA
     
-    # Create Program object form data
+    # Create Program object from data
     pgm = mpc1000.Program(pgm_data)
     
     # Print program's intial values
