@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 load, edit, and export Akai MPC 1000 program file data
 """
@@ -42,25 +42,25 @@ def indented_byte_list_string(byte_list, indent_amount=0, items_per_row=8):
     """
     str_list = []
     sub_str_list = []
-    
+
     indent_amount = int(indent_amount)
-    
+
     if indent_amount > 0:
         indent_spaces = ' ' * indent_amount
     else:
         indent_spaces = ''
-    
+
     indent_string = ''.join(('\n', indent_spaces))
-    
+
     for byte in byte_list:
         sub_str_list.append('{0:02X}'.format(byte))
         if len(sub_str_list) == items_per_row:
             str_list.append(' '.join(sub_str_list))
             sub_str_list = []
-            
+
     if sub_str_list:
         str_list.append(' '.join(sub_str_list))
-                
+
     return ''.join((indent_spaces, indent_string.join(str_list)))
 
 def pass_validator(value):
@@ -71,24 +71,27 @@ def int_in_range_validator(lower, upper):
         value = int(value)
         if value < lower or value > upper:
             raise ValueError('out of range ({0} to {1}): {2!r}'.format(lower, upper, value))
-        return value    
+        return value
     return f
 
 def sample_name_validator(value):
     valid_name_characters = (
-        "abcdefghijklmnopqrstuvwxyz"
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-        "1234567890"
-        "!#$%&'()-@_{} \x00"
+        b"abcdefghijklmnopqrstuvwxyz"
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        b"1234567890"
+        b"!#$%&'()-@_{} \x00"
     )
-    value = str(value)
+    try:
+        value = value.encode("utf-8")
+    except AttributeError:
+        pass
     if len(value) > 16:
-        raise ValueError('string too long')
+        raise ValueError(f'string too long {value!r}')
     for c in value:
         if c not in valid_name_characters:
             raise ValueError('invalid character: {0!r}'.format(c))
     return value
-    
+
 def setter_factory(name, validator):
     def f(self, val):
         val = validator(val)
@@ -98,7 +101,7 @@ def setter_factory(name, validator):
 def getter_factory(name):
     def f(self):
         return getattr(self, '_' + name)
-    return f        
+    return f
 
 def class_factory(class_name='', format='', doc='', format_attrs=None, additional_attrs=None, **kwarg):
     dct = {}
@@ -107,40 +110,39 @@ def class_factory(class_name='', format='', doc='', format_attrs=None, additiona
     dct['size'] = struct.calcsize(format)
     dct['format_attrs'] = format_attrs or []
     dct['additional_attrs'] = additional_attrs or []
-        
+
     def unpack(self, data_str=None):
         unpacked_data = struct.unpack(self.format, data_str[0:struct.calcsize(self.format)])
         for i, val in enumerate(unpacked_data):
-            setattr(self, self.format_attrs[i][0], val)        
+            setattr(self, self.format_attrs[i][0], val)
     dct['unpack'] = unpack
-    
+
     def format_str(self):
         out = []
-        for name, validator in self.format_attrs:
+        for name, unused_validator in self.format_attrs:
             out.append(attr_value_fmt.format(name, getattr(self, name)))
         return '\n'.join(out)
-        out.append(')')
     dct['format_str'] = format_str
 
     def pack(self):
         vals = [getattr(self, a[0]) for a in self.format_attrs]
         return struct.pack(self.format, *vals)
     dct['pack'] = pack
-    
+
     for attr_name, validator in dct['format_attrs']:
         g = getter_factory(attr_name)
         s = setter_factory(attr_name, validator)
         dct[attr_name] = property(g, s)
-    
+
     for attr_name, validator in dct['additional_attrs']:
         g = getter_factory(attr_name)
         s = setter_factory(attr_name, validator)
         dct[attr_name] = property(g, s)
-    
-    dct['__init__'] = unpack        
+
+    dct['__init__'] = unpack
     dct['__str__'] = format_str
     dct['data'] = property(pack)
-        
+
     dct.update(kwarg)
     return type(class_name, (object,), dct)
 
@@ -175,28 +177,28 @@ pad_format = (
     'b'     #  Mute Group       0="Off", 1 to 32
     'x'     #  Padding
     'B'     #  Unknown
-    'B'     #  Attack   
-    'B'     #  Decay 
+    'B'     #  Attack
+    'B'     #  Decay
     'B'     #  Decay Mode       0="End", 1="Start"
-    '2x'    #  Padding 
-    'B'     #  Velocity to Level    
-    '5x'    #  Padding 
+    '2x'    #  Padding
+    'B'     #  Velocity to Level
+    '5x'    #  Padding
     'b'     #  Filter 1 Type    0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass"
-    'B'     #  Filter 1 Freq    
-    'B'     #  Filter 1 Res 
+    'B'     #  Filter 1 Freq
+    'B'     #  Filter 1 Res
     '4x'    #  Padding
-    'B'     #  Filter 1 Velocity to Frequency   
+    'B'     #  Filter 1 Velocity to Frequency
     'B'     #  Filter 2 Type    0="Off", 1="Lowpass", 2="Bandpass", 3="Highpass", 4="Link"
-    'B'     #  Filter 2 Freq    
-    'B'     #  Filter 2 Res 
+    'B'     #  Filter 2 Freq
+    'B'     #  Filter 2 Res
     '4x'    #  Padding
-    'B'     #  Filter 2 Velocity to Frequency   
-    '14x'   #  Padding  
-    'B'     #  Mixer Level 
+    'B'     #  Filter 2 Velocity to Frequency
+    '14x'   #  Padding
+    'B'     #  Mixer Level
     'B'     #  Mixer Pan    0 to 49=Left, 50=Center, 51 to 100=Right
     'B'     #  Output       0="Stereo", 1="1-2", 2="3-4"
     'B'     #  FX Send      0="Off", 1="1", 2="2"
-    'B'     #  FX Send Level 
+    'B'     #  FX Send Level
     'B'     #  Filter Attenuation   0="0dB", 1="-6dB", 2="-12dB"
     '15x'   #  Padding
 )
@@ -228,7 +230,7 @@ pad_format_attrs = (
 def pad_init(self, data):
     self.samples = []
     offset = 0
-    for i in xrange(0, 4):
+    for i in range(0, 4):
         s = Sample(data[offset:])
         self.samples.append(s)
         offset += Sample.size
@@ -237,14 +239,14 @@ def pad_init(self, data):
 def pad_str(self):
     out = [self.format_str()]
     for i, s in enumerate(self.samples):
-        out.append('Sample {0}:'.format(i))
+        out.append(f'Sample {i}:')
         out.append(indent(str(s)))
     return '\n'.join(out)
 
 def pad_data(self):
     data_str_list = [s.data for s in self.samples]
     data_str_list.append(self.pack())
-    return ''.join(data_str_list)
+    return b''.join(data_str_list)
 
 Pad = class_factory(
     class_name = 'Pad',
@@ -267,29 +269,29 @@ program_format = (
     'B'   #  Slider 1 Pad
     'B'   #  Unknown
     'B'   #  Slider 1 Parameter    0="Tune", 1="Filter", 2="Layer", 3="Attack", 4="Decay"
-    'b'   #  Slider 1 Tune Low  
+    'b'   #  Slider 1 Tune Low
     'b'   #  Slider 1 Tune High
-    'b'   #  Slider 1 Filter Low   
-    'b'   #  Slider 1 Filter High  
-    'B'   #  Slider 1 Layer Low    
-    'B'   #  Slider 1 Layer High   
-    'B'   #  Slider 1 Attack Low   
-    'B'   #  Slider 1 Attack High  
-    'B'   #  Slider 1 Decay Low    
-    'B'   #  Slider 1 Decay High   
-    'B'   #  Slider 2 Pad   
-    'B'   #  Unknown 
+    'b'   #  Slider 1 Filter Low
+    'b'   #  Slider 1 Filter High
+    'B'   #  Slider 1 Layer Low
+    'B'   #  Slider 1 Layer High
+    'B'   #  Slider 1 Attack Low
+    'B'   #  Slider 1 Attack High
+    'B'   #  Slider 1 Decay Low
+    'B'   #  Slider 1 Decay High
+    'B'   #  Slider 2 Pad
+    'B'   #  Unknown
     'B'   #  Slider 2 Parameter    0="Tune", 1="Filter", 2="Layer", 3="Attack", 4="Decay"
-    'b'   #  Slider 2 Tune Low  
-    'b'   #  Slider 2 Tune High     
-    'b'   #  Slider 2 Filter Low        
-    'b'   #  Slider 2 Filter High   
-    'B'   #  Slider 2 Layer Low     
-    'B'   #  Slider 2 Layer High    
-    'B'   #  Slider 2 Attack Low        
-    'B'   #  Slider 2 Attack High   
-    'B'   #  Slider 2 Decay Low     
-    'B'   #  Slider 2 Decay High   
+    'b'   #  Slider 2 Tune Low
+    'b'   #  Slider 2 Tune High
+    'b'   #  Slider 2 Filter Low
+    'b'   #  Slider 2 Filter High
+    'B'   #  Slider 2 Layer Low
+    'B'   #  Slider 2 Layer High
+    'B'   #  Slider 2 Attack Low
+    'B'   #  Slider 2 Attack High
+    'B'   #  Slider 2 Decay Low
+    'B'   #  Slider 2 Decay High
     '17x' #  Padding
 )
 
@@ -336,15 +338,15 @@ def program_init(self, data=None):
     self.file_size = unpacked_data[0]
     self.file_type = unpacked_data[1]
     offset += size
-    
+
     # Pads and samples
     size = Pad.size
     self.pads = []
-    for i in xrange(0, 64):
+    for i in range(0, 64):
         p = Pad(data[offset:offset+size])
         self.pads.append(p)
         offset += size
-    
+
     # Pad MIDI Note data
     fmt = self.addl_formats['pad_midi_note']
     size = struct.calcsize(fmt)
@@ -359,37 +361,37 @@ def program_init(self, data=None):
     midi_note_pads = struct.unpack(fmt, data[offset:offset+size])
     # Ignore MIDI Note Pad data -- already have data from Pad MIDI Note data
     offset += size
-    
+
     self.unpack(data[offset:])
 
 def program_str(self):
     out = []
     for a in ('file_size', 'file_type'):
-        print attr_value_fmt.format(a, getattr(self, a))
-    
+        print(attr_value_fmt.format(a, getattr(self, a)))
+
     for a in ('pad_midi_notes', 'midi_note_pads'):
         val = indented_byte_list_string(getattr(self, a), len(a) + len(attr_value_sep)).strip()
-        print attr_value_fmt.format(a, val)
-    
+        print(attr_value_fmt.format(a, val))
+
     out.append(self.format_str())
     for i, s in enumerate(self.pads):
         out.append('Pad {0}:'.format(i))
         out.append(indent(str(s)))
     return '\n'.join(out)
 
-def program_data(self):    
+def program_data(self):
     header_str = struct.pack(self.addl_formats['header'], self.file_size, self.file_type)
     pad_midi_note_str = struct.pack(self.addl_formats['pad_midi_note'], *(self.pad_midi_notes))
     midi_note_pad_str = struct.pack(self.addl_formats['midi_note_pad'], *(self.midi_note_pads))
     midi_and_sliders_str = self.pack()
-    
+
     pad_data_str_list = [p.data for p in self.pads]
 
     data_str_list = [header_str]
     data_str_list.extend(pad_data_str_list)
     data_str_list.extend([pad_midi_note_str, midi_note_pad_str, midi_and_sliders_str])
-    
-    return ''.join(data_str_list)
+
+    return b''.join(data_str_list)
 
 def program_pad_midi_notes(self):
     """
@@ -425,22 +427,23 @@ Program = class_factory(
 
 def main():
     pgm_data_str = DEFAULT_PGM_DATA
-    
+
     pgm = Program(pgm_data_str)
-    
+
     if pgm:
-        print 'Program loaded'
+        print('Program loaded')
     else:
-        print 'Program failed to load'
+        print('Program failed to load')
         return 1
-        
+
     pgm_data = pgm.data
-    
+
     if pgm_data == pgm_data_str:
-        print 'Program data matches original'
+        print('Program data matches original')
+        print(repr(pgm_data))
     else:
-        print 'Program data differs from original'
-        print repr(pgm_data)
+        print('Program data differs from original')
+        print(repr(pgm_data))
         return 2
 
     return 0
@@ -448,4 +451,3 @@ def main():
 if __name__ == '__main__':
     status = main()
     sys.exit(status)
-
